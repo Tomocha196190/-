@@ -4,215 +4,260 @@
 <meta charset="UTF-8">
 <title>オセロゲーム</title>
 <style>
-  body { text-align: center; font-family: sans-serif; }
-  #board {
-    display: grid;
-    grid-template-columns: repeat(8, 50px);
-    gap: 2px;
-    justify-content: center;
-    margin-top: 20px;
-  }
-  .cell {
-    width: 50px; height: 50px;
-    background: green;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    position: relative;
-  }
-  .disc {
-    width: 40px; height: 40px;
-    border-radius: 50%;
-  }
-  .black { background: black; }
-  .white { background: white; }
+body { text-align:center; font-family:sans-serif; margin:0; }
 
-  /* 👇 追加：置ける場所 */
-  .hint::after {
-    content: "";
-    width: 15px;
-    height: 15px;
-    background: yellow;
-    border-radius: 50%;
-    opacity: 0.7;
-    position: absolute;
-  }
+/* タイトル画面 */
+#titleScreen {
+  height:100vh;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  background:#222;
+  color:white;
+}
+button {
+  padding:10px 20px;
+  margin:5px;
+  font-size:16px;
+}
 
-  #info {
-    margin-top: 15px;
-    font-size: 18px;
-  }
+/* ゲーム画面 */
+#game { display:none; }
+
+#board {
+  display:grid;
+  grid-template-columns: repeat(8, 1fr);
+  max-width:90vw;
+  margin:auto;
+}
+.cell {
+  aspect-ratio:1;
+  background:green;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+}
+.disc {
+  width:80%;
+  height:80%;
+  border-radius:50%;
+  transition:transform 0.3s;
+}
+.black { background:black; }
+.white { background:white; }
+.hint::after {
+  content:"";
+  width:20%;
+  height:20%;
+  background:yellow;
+  border-radius:50%;
+  position:absolute;
+}
 </style>
 </head>
 <body>
 
-<h1>オセロ（プレイヤー vs CPU）</h1>
-<div id="info"></div>
-<div id="board"></div>
+<div id="titleScreen">
+  <h1>オセロゲーム</h1>
+  <p>難易度を選択</p>
+  <button onclick="startGame('easy')">Easy</button>
+  <button onclick="startGame('normal')">Normal</button>
+  <button onclick="startGame('hard')">Hard</button>
+</div>
+
+<div id="game">
+  <h2 id="info"></h2>
+  <button onclick="initBoard()">🔁 リスタート</button>
+  <div id="board"></div>
+</div>
 
 <script>
-const SIZE = 8;
-let board = [];
-let currentPlayer = "black";
+const SIZE=8;
+let board, currentPlayer, difficulty;
 
-const directions = [
-  [1,0],[-1,0],[0,1],[0,-1],
-  [1,1],[1,-1],[-1,1],[-1,-1]
-];
+const dirs=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
 
-function initBoard() {
-  board = Array(SIZE).fill().map(() => Array(SIZE).fill(null));
+function startGame(diff){
+  difficulty=diff;
+  document.getElementById("titleScreen").style.display="none";
+  document.getElementById("game").style.display="block";
+  initBoard();
+}
 
-  board[3][3] = "white";
-  board[3][4] = "black";
-  board[4][3] = "black";
-  board[4][4] = "white";
-
+function initBoard(){
+  board=Array(SIZE).fill().map(()=>Array(SIZE).fill(null));
+  board[3][3]="white"; board[3][4]="black";
+  board[4][3]="black"; board[4][4]="white";
+  currentPlayer="black";
   render();
 }
 
-function getValidMoves(player) {
-  let moves = [];
-  for (let y=0;y<SIZE;y++){
-    for (let x=0;x<SIZE;x++){
-      if (isValidMove(x,y,player)){
-        moves.push([x,y]);
-      }
-    }
-  }
-  return moves;
-}
+function render(){
+  const b=document.getElementById("board");
+  const info=document.getElementById("info");
+  b.innerHTML="";
 
-function countDiscs() {
-  let black = 0, white = 0;
-  for (let row of board){
-    for (let cell of row){
-      if (cell === "black") black++;
-      if (cell === "white") white++;
-    }
-  }
-  return {black, white};
-}
+  let valid=getMoves(currentPlayer);
 
-function render() {
-  const boardEl = document.getElementById("board");
-  const infoEl = document.getElementById("info");
-  boardEl.innerHTML = "";
+  for(let y=0;y<SIZE;y++){
+    for(let x=0;x<SIZE;x++){
+      let c=document.createElement("div");
+      c.className="cell";
+      c.onclick=()=>move(x,y);
 
-  const validMoves = getValidMoves(currentPlayer);
-
-  for (let y = 0; y < SIZE; y++) {
-    for (let x = 0; x < SIZE; x++) {
-      const cell = document.createElement("div");
-      cell.className = "cell";
-      cell.onclick = () => playerMove(x, y);
-
-      // 👇 ヒント表示
-      if (currentPlayer === "black") {
-        if (validMoves.some(m => m[0]===x && m[1]===y)) {
-          cell.classList.add("hint");
-        }
+      if(currentPlayer==="black" && valid.some(m=>m[0]==x&&m[1]==y)){
+        c.classList.add("hint");
       }
 
-      if (board[y][x]) {
-        const disc = document.createElement("div");
-        disc.className = "disc " + board[y][x];
-        cell.appendChild(disc);
+      if(board[y][x]){
+        let d=document.createElement("div");
+        d.className="disc "+board[y][x];
+        c.appendChild(d);
       }
-
-      boardEl.appendChild(cell);
+      b.appendChild(c);
     }
   }
 
-  // 👇 枚数表示
-  const {black, white} = countDiscs();
-
-  // 👇 勝敗チェック
-  let text = `黒: ${black}枚 / 白: ${white}枚<br>`;
-
-  const blackMoves = getValidMoves("black");
-  const whiteMoves = getValidMoves("white");
-
-  if (blackMoves.length === 0 && whiteMoves.length === 0) {
-    if (black > white) text += "🎉 あなたの勝ち！";
-    else if (white > black) text += "💻 CPUの勝ち！";
-    else text += "🤝 引き分け！";
-  } else {
-    text += currentPlayer === "black" ? "あなたのターン" : "CPUのターン";
-  }
-
-  infoEl.innerHTML = text;
+  let {bCount,wCount}=count();
+  info.innerHTML=`黒:${bCount} 白:${wCount}<br>${currentPlayer==="black"?"あなた":"CPU"}のターン`;
 }
 
-function isValidMove(x, y, player) {
-  if (board[y][x]) return false;
+function count(){
+  let b=0,w=0;
+  board.flat().forEach(c=>{
+    if(c==="black")b++;
+    if(c==="white")w++;
+  });
+  return {bCount:b,wCount:w};
+}
 
-  for (let [dx, dy] of directions) {
-    let nx = x + dx, ny = y + dy;
-    let hasOpponent = false;
+function getMoves(p){
+  let res=[];
+  for(let y=0;y<SIZE;y++){
+    for(let x=0;x<SIZE;x++){
+      if(valid(x,y,p)) res.push([x,y]);
+    }
+  }
+  return res;
+}
 
-    while (nx>=0 && ny>=0 && nx<SIZE && ny<SIZE) {
-      if (!board[ny][nx]) break;
-      if (board[ny][nx] !== player) {
-        hasOpponent = true;
-      } else {
-        if (hasOpponent) return true;
+function valid(x,y,p){
+  if(board[y][x])return false;
+  for(let[dX,dY]of dirs){
+    let nx=x+dX,ny=y+dY,found=false;
+    while(nx>=0&&ny>=0&&nx<SIZE&&ny<SIZE){
+      if(!board[ny][nx])break;
+      if(board[ny][nx]!==p) found=true;
+      else{
+        if(found)return true;
         break;
       }
-      nx += dx; ny += dy;
+      nx+=dX;ny+=dY;
     }
   }
   return false;
 }
 
-function flipDiscs(x, y, player) {
-  for (let [dx, dy] of directions) {
-    let nx = x + dx, ny = y + dy;
-    let discs = [];
-
-    while (nx>=0 && ny>=0 && nx<SIZE && ny<SIZE) {
-      if (!board[ny][nx]) break;
-      if (board[ny][nx] !== player) {
-        discs.push([nx, ny]);
-      } else {
-        for (let [fx, fy] of discs) {
-          board[fy][fx] = player;
-        }
+function flip(x,y,p){
+  for(let[dX,dY]of dirs){
+    let nx=x+dX,ny=y+dY,arr=[];
+    while(nx>=0&&ny>=0&&nx<SIZE&&ny<SIZE){
+      if(!board[ny][nx])break;
+      if(board[ny][nx]!==p) arr.push([nx,ny]);
+      else{
+        arr.forEach(([fx,fy])=>board[fy][fx]=p);
         break;
       }
-      nx += dx; ny += dy;
+      nx+=dX;ny+=dY;
     }
   }
 }
 
-function playerMove(x, y) {
-  if (currentPlayer !== "black") return;
-  if (!isValidMove(x, y, "black")) return;
-
-  board[y][x] = "black";
-  flipDiscs(x, y, "black");
-  currentPlayer = "white";
+function move(x,y){
+  if(currentPlayer!=="black"||!valid(x,y,"black"))return;
+  board[y][x]="black";
+  flip(x,y,"black");
+  currentPlayer="white";
   render();
-
-  setTimeout(cpuMove, 500);
+  setTimeout(cpu,300);
 }
 
-function cpuMove() {
-  let moves = getValidMoves("white");
+/* CPU */
+function cpu(){
+  let moves=getMoves("white");
+  if(!moves.length){ currentPlayer="black"; render(); return;}
 
-  if (moves.length === 0) {
-    currentPlayer = "black";
-    render();
-    return;
+  let choice;
+
+  if(difficulty==="easy"){
+    choice=moves[Math.floor(Math.random()*moves.length)];
+  }
+  else if(difficulty==="normal"){
+    choice=moves.sort((a,b)=>evalMove(b)-evalMove(a))[0];
+  }
+  else{
+    choice=minimaxRoot(3,"white");
   }
 
-  let [x,y] = moves[Math.floor(Math.random()*moves.length)];
-
-  board[y][x] = "white";
-  flipDiscs(x, y, "white");
-  currentPlayer = "black";
+  let[x,y]=choice;
+  board[y][x]="white";
+  flip(x,y,"white");
+  currentPlayer="black";
   render();
+}
+
+/* 評価 */
+function evalMove([x,y]){
+  let score=0;
+  if((x===0||x===7)&&(y===0||y===7))score+=100;
+  return score;
+}
+
+/* ミニマックス */
+function minimaxRoot(depth,p){
+  let moves=getMoves(p);
+  let best=-Infinity, bestMove=moves[0];
+
+  for(let m of moves){
+    let newB=JSON.parse(JSON.stringify(board));
+    simulate(m,p,newB);
+    let val=minimax(depth-1,false,newB);
+    if(val>best){best=val;bestMove=m;}
+  }
+  return bestMove;
+}
+
+function minimax(depth,isMax,b){
+  if(depth===0)return evaluateBoard(b);
+
+  let p=isMax?"white":"black";
+  let moves=getMoves(p);
+  if(!moves.length)return evaluateBoard(b);
+
+  let best=isMax?-Infinity:Infinity;
+
+  for(let m of moves){
+    let newB=JSON.parse(JSON.stringify(b));
+    simulate(m,p,newB);
+    let val=minimax(depth-1,!isMax,newB);
+    best=isMax?Math.max(best,val):Math.min(best,val);
+  }
+  return best;
+}
+
+function simulate([x,y],p,b){
+  b[y][x]=p;
+}
+
+function evaluateBoard(b){
+  let score=0;
+  b.flat().forEach(c=>{
+    if(c==="white")score++;
+    if(c==="black")score--;
+  });
+  return score;
 }
 
 initBoard();
