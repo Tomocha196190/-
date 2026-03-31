@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>オセロゲーム</title>
+<style>
+  body { text-align: center; font-family: sans-serif; }
+  #board {
+    display: grid;
+    grid-template-columns: repeat(8, 50px);
+    gap: 2px;
+    justify-content: center;
+    margin-top: 20px;
+  }
+  .cell {
+    width: 50px; height: 50px;
+    background: green;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .disc {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+  }
+  .black { background: black; }
+  .white { background: white; }
+</style>
+</head>
+<body>
+
+<h1>オセロ（プレイヤー vs CPU）</h1>
+<div id="board"></div>
+
+<script>
+const SIZE = 8;
+let board = [];
+let currentPlayer = "black";
+
+function initBoard() {
+  board = Array(SIZE).fill().map(() => Array(SIZE).fill(null));
+
+  board[3][3] = "white";
+  board[3][4] = "black";
+  board[4][3] = "black";
+  board[4][4] = "white";
+
+  render();
+}
+
+function render() {
+  const boardEl = document.getElementById("board");
+  boardEl.innerHTML = "";
+
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      cell.onclick = () => playerMove(x, y);
+
+      if (board[y][x]) {
+        const disc = document.createElement("div");
+        disc.className = "disc " + board[y][x];
+        cell.appendChild(disc);
+      }
+
+      boardEl.appendChild(cell);
+    }
+  }
+}
+
+const directions = [
+  [1,0],[-1,0],[0,1],[0,-1],
+  [1,1],[1,-1],[-1,1],[-1,-1]
+];
+
+function isValidMove(x, y, player) {
+  if (board[y][x]) return false;
+
+  for (let [dx, dy] of directions) {
+    let nx = x + dx, ny = y + dy;
+    let hasOpponent = false;
+
+    while (nx>=0 && ny>=0 && nx<SIZE && ny<SIZE) {
+      if (!board[ny][nx]) break;
+      if (board[ny][nx] !== player) {
+        hasOpponent = true;
+      } else {
+        if (hasOpponent) return true;
+        break;
+      }
+      nx += dx; ny += dy;
+    }
+  }
+  return false;
+}
+
+function flipDiscs(x, y, player) {
+  for (let [dx, dy] of directions) {
+    let nx = x + dx, ny = y + dy;
+    let discs = [];
+
+    while (nx>=0 && ny>=0 && nx<SIZE && ny<SIZE) {
+      if (!board[ny][nx]) break;
+      if (board[ny][nx] !== player) {
+        discs.push([nx, ny]);
+      } else {
+        for (let [fx, fy] of discs) {
+          board[fy][fx] = player;
+        }
+        break;
+      }
+      nx += dx; ny += dy;
+    }
+  }
+}
+
+function playerMove(x, y) {
+  if (currentPlayer !== "black") return;
+  if (!isValidMove(x, y, "black")) return;
+
+  board[y][x] = "black";
+  flipDiscs(x, y, "black");
+  currentPlayer = "white";
+  render();
+
+  setTimeout(cpuMove, 500);
+}
+
+function cpuMove() {
+  let moves = [];
+
+  for (let y=0;y<SIZE;y++){
+    for (let x=0;x<SIZE;x++){
+      if (isValidMove(x,y,"white")){
+        moves.push([x,y]);
+      }
+    }
+  }
+
+  if (moves.length === 0) {
+    currentPlayer = "black";
+    return;
+  }
+
+  let [x,y] = moves[Math.floor(Math.random()*moves.length)];
+
+  board[y][x] = "white";
+  flipDiscs(x, y, "white");
+  currentPlayer = "black";
+  render();
+}
+
+initBoard();
+</script>
+
+</body>
+</html>
