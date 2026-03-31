@@ -2,315 +2,187 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>オセロゲーム</title>
+<title>ネオン放置クリッカー</title>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap');
+
 body {
   margin:0;
-  font-family: 'Segoe UI', sans-serif;
-  background: linear-gradient(135deg, #141e30, #243b55);
+  font-family: 'Orbitron', sans-serif;
+  background: linear-gradient(135deg,#0f0c29,#302b63,#24243e);
   color:white;
   text-align:center;
 }
 
 /* タイトル */
-h1, h2 {
-  letter-spacing: 2px;
-}
+h1 { margin-top:20px; text-shadow: 0 0 10px cyan; }
 
-/* ガラス風パネル */
-#game, #titleScreen {
-  backdrop-filter: blur(15px);
+/* コイン表示 */
+#coin {
+  font-size:50px;
+  margin:20px;
+  position:relative;
+  text-shadow: 0 0 20px yellow;
 }
 
 /* ボタン */
 button {
-  background: rgba(255,255,255,0.1);
-  border: 1px solid rgba(255,255,255,0.2);
-  color:white;
-  padding:10px 20px;
-  border-radius:10px;
+  padding:15px 30px;
+  margin:10px;
+  font-size:18px;
   cursor:pointer;
+  border:none;
+  border-radius:15px;
+  background: linear-gradient(145deg, #ff0080, #7928ca);
+  color:white;
+  box-shadow: 0 0 15px #ff0080, 0 0 30px #7928ca;
   transition: all 0.2s;
 }
 button:hover {
-  background: rgba(255,255,255,0.2);
-  transform: translateY(-2px);
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 0 25px #ff0080, 0 0 50px #7928ca;
 }
 
-/* 盤面 */
-#board {
-  display:grid;
-  grid-template-columns: repeat(8, 1fr);
-  max-width:500px;
-  margin:20px auto;
-  gap:6px;
-  padding:10px;
-  background: rgba(255,255,255,0.05);
-  border-radius:15px;
-  box-shadow: 0 0 20px rgba(0,0,0,0.5);
+/* ショップ */
+#shop { margin-top:20px; }
+
+/* 浮かぶ数字 */
+.floating {
+  position:absolute;
+  font-size:20px;
+  color:#0ff;
+  text-shadow:0 0 10px #0ff, 0 0 20px #0ff;
+  animation: floatUp 1s ease-out forwards;
+}
+@keyframes floatUp {
+  0% { opacity:1; transform: translateY(0) scale(1); }
+  100% { opacity:0; transform: translateY(-60px) scale(1.5); }
 }
 
-/* セル */
-.cell {
-  aspect-ratio:1;
-  background: linear-gradient(145deg, #0f9b0f, #006400);
-  border-radius:10px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  position:relative;
-  transition: transform 0.1s;
-}
-.cell:hover {
-  transform: scale(1.05);
-}
-
-/* 石 */
-.disc {
-  width:75%;
-  height:75%;
-  border-radius:50%;
-  box-shadow: inset -5px -5px 10px rgba(0,0,0,0.5),
-              inset 5px 5px 10px rgba(255,255,255,0.2),
-              0 4px 10px rgba(0,0,0,0.6);
-  transition: transform 0.3s;
-}
-
-.black {
-  background: radial-gradient(circle at 30% 30%, #666, #000);
-}
-.white {
-  background: radial-gradient(circle at 30% 30%, #fff, #ccc);
-}
-
-/* ヒント */
-.hint::after {
-  content:"";
-  width:25%;
-  height:25%;
-  background: rgba(255,255,0,0.8);
-  border-radius:50%;
-  box-shadow: 0 0 10px yellow;
-}
-
-/* 情報 */
-#info {
-  margin-top:10px;
-  font-size:18px;
-}
-
-/* スマホ */
-@media (max-width:600px){
-  #board {
-    max-width:95vw;
-  }
+/* レスポンシブ */
+@media(max-width:600px){
+  #coin { font-size:36px; }
+  button { font-size:16px; padding:12px 20px; }
 }
 </style>
 </head>
 <body>
 
-<div id="titleScreen">
-  <h1>オセロゲーム</h1>
-  <p>難易度を選択</p>
-  <button onclick="startGame('easy')">Easy</button>
-  <button onclick="startGame('normal')">Normal</button>
-  <button onclick="startGame('hard')">Hard</button>
-</div>
+<h1>💎 ネオン放置クリッカー</h1>
+<div id="coin">0</div>
 
-<div id="game">
-  <h2 id="info"></h2>
-  <button onclick="initBoard()">🔁 リスタート</button>
-  <div id="board"></div>
+<button onclick="clickCoin()">💥 クリック！</button>
+
+<div id="shop">
+  <h2>強化ショップ</h2>
+  <button id="clickBtn" onclick="buyClick()">クリック強化 (コスト: 10)</button>
+  <button id="autoBtn" onclick="buyAuto()">自動収入 (コスト: 20)</button>
 </div>
 
 <script>
-const SIZE=8;
-let board, currentPlayer, difficulty;
+// --- ゲーム変数 ---
+let coins = 0;
+let clickPower = 1;
+let autoPower = 0;
+let clickCost = 10;
+let autoCost = 20;
 
-const dirs=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+// 効果音
+const clickSound = new Audio("https://actions.google.com/sounds/v1/cartoon/pop.ogg");
+const upgradeSound = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg");
 
-function startGame(diff){
-  difficulty=diff;
-  document.getElementById("titleScreen").style.display="none";
-  document.getElementById("game").style.display="block";
-  initBoard();
+// --- セーブ＆ロード ---
+function saveGame() {
+  localStorage.setItem("coins", coins);
+  localStorage.setItem("clickPower", clickPower);
+  localStorage.setItem("autoPower", autoPower);
+  localStorage.setItem("clickCost", clickCost);
+  localStorage.setItem("autoCost", autoCost);
+  localStorage.setItem("lastTime", Date.now());
 }
 
-function initBoard(){
-  board=Array(SIZE).fill().map(()=>Array(SIZE).fill(null));
-  board[3][3]="white"; board[3][4]="black";
-  board[4][3]="black"; board[4][4]="white";
-  currentPlayer="black";
-  render();
-}
-
-function render(){
-  const b=document.getElementById("board");
-  const info=document.getElementById("info");
-  b.innerHTML="";
-
-  let valid=getMoves(currentPlayer);
-
-  for(let y=0;y<SIZE;y++){
-    for(let x=0;x<SIZE;x++){
-      let c=document.createElement("div");
-      c.className="cell";
-      c.onclick=()=>move(x,y);
-
-      if(currentPlayer==="black" && valid.some(m=>m[0]==x&&m[1]==y)){
-        c.classList.add("hint");
-      }
-
-      if(board[y][x]){
-        let d=document.createElement("div");
-        d.className="disc "+board[y][x];
-        c.appendChild(d);
-      }
-      b.appendChild(c);
-    }
+function loadGame() {
+  let saved = localStorage.getItem("coins");
+  if(saved){
+    coins = parseFloat(saved);
+    clickPower = parseInt(localStorage.getItem("clickPower"));
+    autoPower = parseInt(localStorage.getItem("autoPower"));
+    clickCost = parseFloat(localStorage.getItem("clickCost"));
+    autoCost = parseFloat(localStorage.getItem("autoCost"));
+    
+    // オフライン報酬
+    let lastTime = parseInt(localStorage.getItem("lastTime"));
+    let sec = Math.floor((Date.now() - lastTime)/1000);
+    let gain = sec * autoPower;
+    if(gain>0) showFloating(`+${gain}`);
+    coins += gain;
   }
+}
+loadGame();
 
-  let {bCount,wCount}=count();
-  info.innerHTML=`黒:${bCount} 白:${wCount}<br>${currentPlayer==="black"?"あなた":"CPU"}のターン`;
+// --- 表示更新 ---
+function update(){
+  document.getElementById("coin").innerText = Math.floor(coins);
+  document.getElementById("clickBtn").innerText = `クリック強化 (コスト: ${Math.floor(clickCost)})`;
+  document.getElementById("autoBtn").innerText = `自動収入 (コスト: ${Math.floor(autoCost)})`;
+  saveGame();
 }
 
-function count(){
-  let b=0,w=0;
-  board.flat().forEach(c=>{
-    if(c==="black")b++;
-    if(c==="white")w++;
-  });
-  return {bCount:b,wCount:w};
+// --- 浮かぶ数字 ---
+function showFloating(text){
+  let div = document.createElement("div");
+  div.className="floating";
+  div.innerText=text;
+  document.getElementById("coin").appendChild(div);
+  setTimeout(()=>div.remove(),1000);
 }
 
-function getMoves(p){
-  let res=[];
-  for(let y=0;y<SIZE;y++){
-    for(let x=0;x<SIZE;x++){
-      if(valid(x,y,p)) res.push([x,y]);
-    }
-  }
-  return res;
+// --- クリック ---
+function clickCoin(){
+  coins += clickPower;
+  showFloating(`+${clickPower}`);
+  clickSound.play();
+  update();
 }
 
-function valid(x,y,p){
-  if(board[y][x])return false;
-  for(let[dX,dY]of dirs){
-    let nx=x+dX,ny=y+dY,found=false;
-    while(nx>=0&&ny>=0&&nx<SIZE&&ny<SIZE){
-      if(!board[ny][nx])break;
-      if(board[ny][nx]!==p) found=true;
-      else{
-        if(found)return true;
-        break;
-      }
-      nx+=dX;ny+=dY;
-    }
-  }
-  return false;
-}
-
-function flip(x,y,p){
-  for(let[dX,dY]of dirs){
-    let nx=x+dX,ny=y+dY,arr=[];
-    while(nx>=0&&ny>=0&&nx<SIZE&&ny<SIZE){
-      if(!board[ny][nx])break;
-      if(board[ny][nx]!==p) arr.push([nx,ny]);
-      else{
-        arr.forEach(([fx,fy])=>board[fy][fx]=p);
-        break;
-      }
-      nx+=dX;ny+=dY;
-    }
+// --- クリック強化 ---
+function buyClick(){
+  if(coins >= clickCost){
+    coins -= clickCost;
+    clickPower++;
+    clickCost *= 1.3; // インフレ
+    upgradeSound.play();
+    showFloating(`💎 +1 Click`);
+    update();
   }
 }
 
-function move(x,y){
-  if(currentPlayer!=="black"||!valid(x,y,"black"))return;
-  board[y][x]="black";
-  flip(x,y,"black");
-  currentPlayer="white";
-  render();
-  setTimeout(cpu,300);
-}
-
-/* CPU */
-function cpu(){
-  let moves=getMoves("white");
-  if(!moves.length){ currentPlayer="black"; render(); return;}
-
-  let choice;
-
-  if(difficulty==="easy"){
-    choice=moves[Math.floor(Math.random()*moves.length)];
+// --- 自動収入 ---
+function buyAuto(){
+  if(coins >= autoCost){
+    coins -= autoCost;
+    autoPower++;
+    autoCost *= 1.4; // インフレ
+    upgradeSound.play();
+    showFloating(`💎 +1 Auto`);
+    update();
   }
-  else if(difficulty==="normal"){
-    choice=moves.sort((a,b)=>evalMove(b)-evalMove(a))[0];
+}
+
+// --- 放置収入 ---
+setInterval(()=>{
+  if(autoPower>0){
+    coins += autoPower;
+    showFloating(`+${autoPower}`);
+    update();
   }
-  else{
-    choice=minimaxRoot(3,"white");
-  }
+},1000);
 
-  let[x,y]=choice;
-  board[y][x]="white";
-  flip(x,y,"white");
-  currentPlayer="black";
-  render();
-}
+// --- セーブ間隔 ---
+setInterval(saveGame,5000);
 
-/* 評価 */
-function evalMove([x,y]){
-  let score=0;
-  if((x===0||x===7)&&(y===0||y===7))score+=100;
-  return score;
-}
-
-/* ミニマックス */
-function minimaxRoot(depth,p){
-  let moves=getMoves(p);
-  let best=-Infinity, bestMove=moves[0];
-
-  for(let m of moves){
-    let newB=JSON.parse(JSON.stringify(board));
-    simulate(m,p,newB);
-    let val=minimax(depth-1,false,newB);
-    if(val>best){best=val;bestMove=m;}
-  }
-  return bestMove;
-}
-
-function minimax(depth,isMax,b){
-  if(depth===0)return evaluateBoard(b);
-
-  let p=isMax?"white":"black";
-  let moves=getMoves(p);
-  if(!moves.length)return evaluateBoard(b);
-
-  let best=isMax?-Infinity:Infinity;
-
-  for(let m of moves){
-    let newB=JSON.parse(JSON.stringify(b));
-    simulate(m,p,newB);
-    let val=minimax(depth-1,!isMax,newB);
-    best=isMax?Math.max(best,val):Math.min(best,val);
-  }
-  return best;
-}
-
-function simulate([x,y],p,b){
-  b[y][x]=p;
-}
-
-function evaluateBoard(b){
-  let score=0;
-  b.flat().forEach(c=>{
-    if(c==="white")score++;
-    if(c==="black")score--;
-  });
-  return score;
-}
-
-initBoard();
+// 初回表示
+update();
 </script>
 
 </body>
