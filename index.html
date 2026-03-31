@@ -2,20 +2,25 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>ネオン放置クリッカー</title>
+<title>ネオン育成放置アクション</title>
+
+<!-- スマホ拡大防止 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap');
 
 body {
   margin:0;
-  font-family: 'Orbitron', sans-serif;
+  font-family:'Orbitron', sans-serif;
   background: linear-gradient(135deg,#0f0c29,#302b63,#24243e);
   color:white;
   text-align:center;
+  overflow-x:hidden;
 }
 
 /* タイトル */
-h1 { margin-top:20px; text-shadow: 0 0 10px cyan; }
+h1 { margin-top:20px; text-shadow:0 0 15px cyan; }
 
 /* コイン表示 */
 #coin {
@@ -23,6 +28,41 @@ h1 { margin-top:20px; text-shadow: 0 0 10px cyan; }
   margin:20px;
   position:relative;
   text-shadow: 0 0 20px yellow;
+}
+
+/* プレイヤー・敵 */
+#gameArea {
+  position: relative;
+  width: 100%;
+  height: 300px;
+  margin: 0 auto;
+  overflow:hidden;
+  border:2px solid cyan;
+  border-radius:15px;
+  background: rgba(0,0,0,0.5);
+}
+.character, .enemy {
+  position:absolute;
+  bottom:10px;
+  width:60px;
+  height:60px;
+  border-radius:50%;
+  line-height:60px;
+  font-size:24px;
+  color:white;
+  text-align:center;
+  font-weight:bold;
+}
+.character {
+  left:50%;
+  transform:translateX(-50%);
+  background: linear-gradient(145deg,#ff0080,#7928ca);
+  box-shadow:0 0 15px #ff0080,0 0 30px #7928ca;
+}
+.enemy {
+  right:10px;
+  background: linear-gradient(145deg,#00ffff,#0080ff);
+  box-shadow:0 0 15px #00ffff,0 0 30px #0080ff;
 }
 
 /* ボタン */
@@ -35,12 +75,12 @@ button {
   border-radius:15px;
   background: linear-gradient(145deg, #ff0080, #7928ca);
   color:white;
-  box-shadow: 0 0 15px #ff0080, 0 0 30px #7928ca;
+  box-shadow:0 0 15px #ff0080,0 0 30px #7928ca;
   transition: all 0.2s;
 }
 button:hover {
   transform: translateY(-3px) scale(1.05);
-  box-shadow: 0 0 25px #ff0080, 0 0 50px #7928ca;
+  box-shadow:0 0 25px #ff0080,0 0 50px #7928ca;
 }
 
 /* ショップ */
@@ -51,32 +91,39 @@ button:hover {
   position:absolute;
   font-size:20px;
   color:#0ff;
-  text-shadow:0 0 10px #0ff, 0 0 20px #0ff;
+  text-shadow:0 0 10px #0ff,0 0 20px #0ff;
   animation: floatUp 1s ease-out forwards;
 }
 @keyframes floatUp {
-  0% { opacity:1; transform: translateY(0) scale(1); }
-  100% { opacity:0; transform: translateY(-60px) scale(1.5); }
+  0% { opacity:1; transform:translateY(0) scale(1); }
+  100% { opacity:0; transform:translateY(-60px) scale(1.5); }
 }
 
 /* レスポンシブ */
 @media(max-width:600px){
   #coin { font-size:36px; }
   button { font-size:16px; padding:12px 20px; }
+  #gameArea { height:200px; }
+  .character, .enemy { width:40px; height:40px; line-height:40px; font-size:18px; }
 }
 </style>
 </head>
 <body>
 
-<h1>💎 ネオン放置クリッカー</h1>
+<h1>💎 ネオン育成放置アクション</h1>
 <div id="coin">0</div>
 
-<button onclick="clickCoin()">💥 クリック！</button>
+<div id="gameArea">
+  <div class="character">🦸</div>
+  <div class="enemy">👾</div>
+</div>
+
+<button onclick="attack()">⚡ 攻撃！</button>
 
 <div id="shop">
   <h2>強化ショップ</h2>
-  <button id="clickBtn" onclick="buyClick()">クリック強化 (コスト: 10)</button>
-  <button id="autoBtn" onclick="buyAuto()">自動収入 (コスト: 20)</button>
+  <button id="clickBtn" onclick="buyClick()">攻撃力強化 (コスト: 10)</button>
+  <button id="autoBtn" onclick="buyAuto()">自動攻撃 (コスト: 20)</button>
 </div>
 
 <script>
@@ -87,21 +134,33 @@ let autoPower = 0;
 let clickCost = 10;
 let autoCost = 20;
 
+let enemyHP = 10;
+let maxEnemyHP = 10;
+
 // 効果音
 const clickSound = new Audio("https://actions.google.com/sounds/v1/cartoon/pop.ogg");
 const upgradeSound = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg");
+const enemyHitSound = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
+
+// --- スマホズーム防止 ---
+let lastTouch = 0;
+document.addEventListener('touchend', function(e){
+  let now = Date.now();
+  if(now - lastTouch <= 300){ e.preventDefault(); }
+  lastTouch = now;
+},{passive:false});
+document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
 
 // --- セーブ＆ロード ---
-function saveGame() {
-  localStorage.setItem("coins", coins);
-  localStorage.setItem("clickPower", clickPower);
-  localStorage.setItem("autoPower", autoPower);
-  localStorage.setItem("clickCost", clickCost);
-  localStorage.setItem("autoCost", autoCost);
-  localStorage.setItem("lastTime", Date.now());
+function saveGame(){
+  localStorage.setItem("coins",coins);
+  localStorage.setItem("clickPower",clickPower);
+  localStorage.setItem("autoPower",autoPower);
+  localStorage.setItem("clickCost",clickCost);
+  localStorage.setItem("autoCost",autoCost);
+  localStorage.setItem("lastTime",Date.now());
 }
-
-function loadGame() {
+function loadGame(){
   let saved = localStorage.getItem("coins");
   if(saved){
     coins = parseFloat(saved);
@@ -112,7 +171,7 @@ function loadGame() {
     
     // オフライン報酬
     let lastTime = parseInt(localStorage.getItem("lastTime"));
-    let sec = Math.floor((Date.now() - lastTime)/1000);
+    let sec = Math.floor((Date.now()-lastTime)/1000);
     let gain = sec * autoPower;
     if(gain>0) showFloating(`+${gain}`);
     coins += gain;
@@ -122,26 +181,48 @@ loadGame();
 
 // --- 表示更新 ---
 function update(){
-  document.getElementById("coin").innerText = Math.floor(coins);
-  document.getElementById("clickBtn").innerText = `クリック強化 (コスト: ${Math.floor(clickCost)})`;
-  document.getElementById("autoBtn").innerText = `自動収入 (コスト: ${Math.floor(autoCost)})`;
+  document.getElementById("coin").innerText=Math.floor(coins);
+  document.getElementById("clickBtn").innerText=`攻撃力強化 (コスト: ${Math.floor(clickCost)})`;
+  document.getElementById("autoBtn").innerText=`自動攻撃 (コスト: ${Math.floor(autoCost)})`;
   saveGame();
 }
 
 // --- 浮かぶ数字 ---
-function showFloating(text){
+function showFloating(text,x=null,y=null){
   let div = document.createElement("div");
   div.className="floating";
   div.innerText=text;
-  document.getElementById("coin").appendChild(div);
+  const area = document.getElementById("gameArea");
+  if(x===null) x = area.offsetWidth/2;
+  if(y===null) y = area.offsetHeight/2;
+  div.style.left = x+"px";
+  div.style.top = y+"px";
+  area.appendChild(div);
   setTimeout(()=>div.remove(),1000);
 }
 
-// --- クリック ---
-function clickCoin(){
-  coins += clickPower;
-  showFloating(`+${clickPower}`);
+// --- 敵処理 ---
+function spawnEnemy(){
+  enemyHP = maxEnemyHP;
+  // 敵位置ランダム
+  const area = document.getElementById("gameArea");
+  const enemy = document.querySelector(".enemy");
+  enemy.style.bottom = (10 + Math.random()*100) + "px";
+}
+spawnEnemy();
+
+// --- 攻撃 ---
+function attack(){
+  enemyHP -= clickPower;
+  showFloating(`-${clickPower}`,Math.random()*200+50,Math.random()*150);
   clickSound.play();
+  enemyHitSound.play();
+  if(enemyHP <=0){
+    coins += Math.floor(maxEnemyHP/2);
+    showFloating(`+${Math.floor(maxEnemyHP/2)}`);
+    maxEnemyHP = Math.floor(maxEnemyHP*1.15);
+    spawnEnemy();
+  }
   update();
 }
 
@@ -150,30 +231,36 @@ function buyClick(){
   if(coins >= clickCost){
     coins -= clickCost;
     clickPower++;
-    clickCost *= 1.3; // インフレ
+    clickCost *= 1.3;
     upgradeSound.play();
-    showFloating(`💎 +1 Click`);
+    showFloating(`💪 +1 攻撃力`);
     update();
   }
 }
 
-// --- 自動収入 ---
+// --- 自動攻撃 ---
 function buyAuto(){
   if(coins >= autoCost){
     coins -= autoCost;
     autoPower++;
-    autoCost *= 1.4; // インフレ
+    autoCost *= 1.4;
     upgradeSound.play();
-    showFloating(`💎 +1 Auto`);
+    showFloating(`⚡ +1 自動攻撃`);
     update();
   }
 }
 
-// --- 放置収入 ---
+// --- 自動攻撃ループ ---
 setInterval(()=>{
   if(autoPower>0){
-    coins += autoPower;
-    showFloating(`+${autoPower}`);
+    enemyHP -= autoPower;
+    coins += Math.floor(enemyHP<=0?maxEnemyHP/2:0);
+    showFloating(`-${autoPower}`,Math.random()*200+50,Math.random()*150);
+    if(enemyHP<=0){
+      coins += Math.floor(maxEnemyHP/2);
+      maxEnemyHP = Math.floor(maxEnemyHP*1.15);
+      spawnEnemy();
+    }
     update();
   }
 },1000);
@@ -181,7 +268,6 @@ setInterval(()=>{
 // --- セーブ間隔 ---
 setInterval(saveGame,5000);
 
-// 初回表示
 update();
 </script>
 
