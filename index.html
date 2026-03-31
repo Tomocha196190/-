@@ -4,56 +4,106 @@
 <meta charset="UTF-8">
 <title>オセロゲーム</title>
 <style>
-body { text-align:center; font-family:sans-serif; margin:0; }
-
-/* タイトル画面 */
-#titleScreen {
-  height:100vh;
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-  align-items:center;
-  background:#222;
+body {
+  margin:0;
+  font-family: 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg, #141e30, #243b55);
   color:white;
+  text-align:center;
 }
+
+/* タイトル */
+h1, h2 {
+  letter-spacing: 2px;
+}
+
+/* ガラス風パネル */
+#game, #titleScreen {
+  backdrop-filter: blur(15px);
+}
+
+/* ボタン */
 button {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  color:white;
   padding:10px 20px;
-  margin:5px;
-  font-size:16px;
+  border-radius:10px;
+  cursor:pointer;
+  transition: all 0.2s;
+}
+button:hover {
+  background: rgba(255,255,255,0.2);
+  transform: translateY(-2px);
 }
 
-/* ゲーム画面 */
-#game { display:none; }
-
+/* 盤面 */
 #board {
   display:grid;
   grid-template-columns: repeat(8, 1fr);
-  max-width:90vw;
-  margin:auto;
+  max-width:500px;
+  margin:20px auto;
+  gap:6px;
+  padding:10px;
+  background: rgba(255,255,255,0.05);
+  border-radius:15px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.5);
 }
+
+/* セル */
 .cell {
   aspect-ratio:1;
-  background:green;
+  background: linear-gradient(145deg, #0f9b0f, #006400);
+  border-radius:10px;
   display:flex;
   align-items:center;
   justify-content:center;
   position:relative;
+  transition: transform 0.1s;
 }
+.cell:hover {
+  transform: scale(1.05);
+}
+
+/* 石 */
 .disc {
-  width:80%;
-  height:80%;
+  width:75%;
+  height:75%;
   border-radius:50%;
-  transition:transform 0.3s;
+  box-shadow: inset -5px -5px 10px rgba(0,0,0,0.5),
+              inset 5px 5px 10px rgba(255,255,255,0.2),
+              0 4px 10px rgba(0,0,0,0.6);
+  transition: transform 0.3s;
 }
-.black { background:black; }
-.white { background:white; }
+
+.black {
+  background: radial-gradient(circle at 30% 30%, #666, #000);
+}
+.white {
+  background: radial-gradient(circle at 30% 30%, #fff, #ccc);
+}
+
+/* ヒント */
 .hint::after {
   content:"";
-  width:20%;
-  height:20%;
-  background:yellow;
+  width:25%;
+  height:25%;
+  background: rgba(255,255,0,0.8);
   border-radius:50%;
-  position:absolute;
+  box-shadow: 0 0 10px yellow;
+}
+
+/* 情報 */
+#info {
+  margin-top:10px;
+  font-size:18px;
+}
+
+/* スマホ */
+@media (max-width:600px){
+  #board {
+    max-width:95vw;
+  }
 }
 </style>
 </head>
