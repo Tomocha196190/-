@@ -19,6 +19,7 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    position: relative;
   }
   .disc {
     width: 40px; height: 40px;
@@ -26,17 +27,39 @@
   }
   .black { background: black; }
   .white { background: white; }
+
+  /* 👇 追加：置ける場所 */
+  .hint::after {
+    content: "";
+    width: 15px;
+    height: 15px;
+    background: yellow;
+    border-radius: 50%;
+    opacity: 0.7;
+    position: absolute;
+  }
+
+  #info {
+    margin-top: 15px;
+    font-size: 18px;
+  }
 </style>
 </head>
 <body>
 
 <h1>オセロ（プレイヤー vs CPU）</h1>
+<div id="info"></div>
 <div id="board"></div>
 
 <script>
 const SIZE = 8;
 let board = [];
 let currentPlayer = "black";
+
+const directions = [
+  [1,0],[-1,0],[0,1],[0,-1],
+  [1,1],[1,-1],[-1,1],[-1,-1]
+];
 
 function initBoard() {
   board = Array(SIZE).fill().map(() => Array(SIZE).fill(null));
@@ -49,15 +72,48 @@ function initBoard() {
   render();
 }
 
+function getValidMoves(player) {
+  let moves = [];
+  for (let y=0;y<SIZE;y++){
+    for (let x=0;x<SIZE;x++){
+      if (isValidMove(x,y,player)){
+        moves.push([x,y]);
+      }
+    }
+  }
+  return moves;
+}
+
+function countDiscs() {
+  let black = 0, white = 0;
+  for (let row of board){
+    for (let cell of row){
+      if (cell === "black") black++;
+      if (cell === "white") white++;
+    }
+  }
+  return {black, white};
+}
+
 function render() {
   const boardEl = document.getElementById("board");
+  const infoEl = document.getElementById("info");
   boardEl.innerHTML = "";
+
+  const validMoves = getValidMoves(currentPlayer);
 
   for (let y = 0; y < SIZE; y++) {
     for (let x = 0; x < SIZE; x++) {
       const cell = document.createElement("div");
       cell.className = "cell";
       cell.onclick = () => playerMove(x, y);
+
+      // 👇 ヒント表示
+      if (currentPlayer === "black") {
+        if (validMoves.some(m => m[0]===x && m[1]===y)) {
+          cell.classList.add("hint");
+        }
+      }
 
       if (board[y][x]) {
         const disc = document.createElement("div");
@@ -68,12 +124,26 @@ function render() {
       boardEl.appendChild(cell);
     }
   }
-}
 
-const directions = [
-  [1,0],[-1,0],[0,1],[0,-1],
-  [1,1],[1,-1],[-1,1],[-1,-1]
-];
+  // 👇 枚数表示
+  const {black, white} = countDiscs();
+
+  // 👇 勝敗チェック
+  let text = `黒: ${black}枚 / 白: ${white}枚<br>`;
+
+  const blackMoves = getValidMoves("black");
+  const whiteMoves = getValidMoves("white");
+
+  if (blackMoves.length === 0 && whiteMoves.length === 0) {
+    if (black > white) text += "🎉 あなたの勝ち！";
+    else if (white > black) text += "💻 CPUの勝ち！";
+    else text += "🤝 引き分け！";
+  } else {
+    text += currentPlayer === "black" ? "あなたのターン" : "CPUのターン";
+  }
+
+  infoEl.innerHTML = text;
+}
 
 function isValidMove(x, y, player) {
   if (board[y][x]) return false;
@@ -129,18 +199,11 @@ function playerMove(x, y) {
 }
 
 function cpuMove() {
-  let moves = [];
-
-  for (let y=0;y<SIZE;y++){
-    for (let x=0;x<SIZE;x++){
-      if (isValidMove(x,y,"white")){
-        moves.push([x,y]);
-      }
-    }
-  }
+  let moves = getValidMoves("white");
 
   if (moves.length === 0) {
     currentPlayer = "black";
+    render();
     return;
   }
 
